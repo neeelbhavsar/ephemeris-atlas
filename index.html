@@ -3,13 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Ephemeris Atlas · The Solar System in Real Time</title>
     <meta
       name="description"
-      content="A real-time 3D atlas of the solar system and the Local Group — scroll to travel from the Sun to the galaxies, hover anything for real facts."
+      content="A real-time 3D atlas of the solar system and the Local Group. Every planet, moon and spacecraft where it really is right now — scroll from the Sun to the galaxies, see tonight's sky and time-travel to the next eclipse."
     />
     <meta name="theme-color" content="#05060d" />
-    <title>The Solar System · Real-time Orbital Atlas</title>
+
+    <!-- Open Graph / social preview -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Ephemeris Atlas" />
+    <meta property="og:title" content="Ephemeris Atlas · The Solar System in Real Time" />
+    <meta
+      property="og:description"
+      content="Every planet, moon and spacecraft where it really is right now. Scroll from the Sun to the Local Group."
+    />
+    <meta property="og:image" content="/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image.jpg" />
+
+    <!-- fonts: non-blocking, connections opened early -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
+
+    <!-- start fetching the first textures while the JS boots -->
+    <link rel="preload" as="image" href="/textures/2k_sun.webp" type="image/webp" crossorigin="anonymous" />
+    <link rel="preload" as="image" href="/textures/2k_stars_milky_way.webp" type="image/webp" crossorigin="anonymous" />
   </head>
   <body>
     <div id="root"></div>
