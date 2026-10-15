@@ -1,10 +1,16 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { ASTEROIDS } from '../data/solarSystem'
-import { auToUnits } from '../lib/scale'
-import { useSimDate, EPOCH } from './SimClock'
-import { makeHoverHandlers, infoFromAsteroid } from './hoverHandlers'
+import { ASTEROIDS, type Asteroid } from '../data/solarSystem'
+import { auToUnits, radiusToUnits } from '../lib/scale'
+import { keplerPositionAu } from '../lib/kepler'
+import { spinAngle } from '../lib/ephemeris'
+import { useStore } from '../store'
+import { useSimDate, EPOCH, daysSinceEpoch } from '../lib/simTime'
+import { bodyHandlers } from './hoverHandlers'
+import { reportPosition } from './bodyPositions'
+import BodyMarker from './BodyMarker'
+import OrbitPath from './OrbitPath'
 
 const BELT_COUNT = 1400
 const BELT_INNER = 2.1
@@ -54,10 +60,10 @@ export default function AsteroidBelt() {
   }, [instances])
 
   useFrame(() => {
-    // whole belt drifts slowly to hint orbital motion (cheap approximation)
+    // whole belt drifts slowly to hint orbital motion (cheap approximation —
+    // the named asteroids below are on their real orbits)
     if (beltRef.current) {
-      const days = (dateRef.current.getTime() - EPOCH) / 86_400_000
-      beltRef.current.rotation.y = (days / 1600) * Math.PI * 2
+      beltRef.current.rotation.y = (daysSinceEpoch(dateRef.current) / 1600) * Math.PI * 2
     }
   })
 
@@ -75,36 +81,40 @@ export default function AsteroidBelt() {
       </group>
 
       {ASTEROIDS.map((a) => (
-        <NamedAsteroid key={a.id} asteroid={a} />
+        <group key={a.id}>
+          <OrbitPath id={a.id} elements={a.elements} color={a.color} opacity={0.12} />
+          <NamedAsteroid asteroid={a} />
+        </group>
       ))}
     </group>
   )
 }
 
-function NamedAsteroid({
-  asteroid,
-}: {
-  asteroid: (typeof ASTEROIDS)[number]
-}) {
+function NamedAsteroid({ asteroid }: { asteroid: Asteroid }) {
   const dateRef = useSimDate()
-  const ref = useRef<THREE.Mesh>(null)
-  const r = auToUnits(asteroid.semiMajorAu)
-  const radius = Math.max(asteroid.radiusKm * 6e-5 * 6, 0.13)
+  const scaleMode = useStore((s) => s.scaleMode)
+  const groupRef = useRef<THREE.Group>(null)
+  const meshRef = useRef<THREE.Mesh>(null)
+  const radius = radiusToUnits(asteroid.radiusKm, 'asteroid', scaleMode)
 
   useFrame(() => {
-    if (!ref.current) return
-    const days = (dateRef.current.getTime() - EPOCH) / 86_400_000
-    const ang =
-      asteroid.phaseDeg * (Math.PI / 180) +
-      (days / asteroid.orbitalPeriodDays) * Math.PI * 2
-    ref.current.position.set(Math.cos(ang) * r, 0, Math.sin(ang) * r)
-    ref.current.rotation.y += 0.01
+    const g = groupRef.current
+    if (!g) return
+    const p = keplerPositionAu(asteroid.elements, dateRef.current)
+    g.position.set(auToUnits(p.x), auToUnits(p.y), auToUnits(p.z))
+    reportPosition(asteroid.id, g.position)
+    if (meshRef.current) {
+      meshRef.current.rotation.y = spinAngle(asteroid.rotationHours, dateRef.current, EPOCH)
+    }
   })
 
   return (
-    <mesh ref={ref} {...makeHoverHandlers(infoFromAsteroid(asteroid))}>
-      <icosahedronGeometry args={[radius, 1]} />
-      <meshStandardMaterial color={asteroid.color} roughness={1} metalness={0} flatShading />
-    </mesh>
+    <group ref={groupRef}>
+      <mesh ref={meshRef} {...bodyHandlers(asteroid.id)}>
+        <icosahedronGeometry args={[radius, 1]} />
+        <meshStandardMaterial color={asteroid.color} roughness={1} metalness={0} flatShading />
+      </mesh>
+      <BodyMarker id={asteroid.id} name={asteroid.name} color={asteroid.color} radius={radius} />
+    </group>
   )
 }

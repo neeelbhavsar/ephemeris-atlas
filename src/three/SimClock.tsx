@@ -1,22 +1,7 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  type RefObject,
-  type ReactNode,
-} from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useStore } from '../store'
-
-/** Reference epoch for spin continuity: 2000-01-01T12:00Z (J2000). */
-export const EPOCH = Date.UTC(2000, 0, 1, 12)
-
-const SimClockCtx = createContext<RefObject<Date>>({
-  current: new Date(),
-})
-
-export const useSimDate = () => useContext(SimClockCtx)
+import { SimClockCtx } from '../lib/simTime'
 
 /**
  * Owns the simulation date. Each frame it advances the clock by
@@ -24,27 +9,32 @@ export const useSimDate = () => useContext(SimClockCtx)
  * throttled ~5 Hz so it doesn't re-render React every frame.
  */
 export function ClockDriver({ children }: { children: ReactNode }) {
-  const dateRef = useRef(new Date())
+  const dateRef = useRef(new Date(useStore.getState().simDateMs))
   const accum = useRef(0)
-  const nowToken = useStore((s) => s.nowToken)
+  const dateRequest = useStore((s) => s.dateRequest)
 
-  // reset the clock to the real current time when the user hits "Now"
+  // jump the clock (reset to now, time travel, shared links)
   useEffect(() => {
-    dateRef.current = new Date()
-    useStore.getState().setSimDateMs(dateRef.current.getTime())
-  }, [nowToken])
+    if (!dateRequest) return
+    dateRef.current = new Date(dateRequest.ms)
+    useStore.getState().setSimDateMs(dateRequest.ms)
+  }, [dateRequest])
 
   useFrame((_, delta) => {
-    const { speed, setSimDateMs } = useStore.getState()
-    // clamp delta so tab-switching doesn't fast-forward wildly
-    const d = Math.min(delta, 0.1)
-    const advanceMs = d * speed * 86_400 * 1000
-    dateRef.current = new Date(dateRef.current.getTime() + advanceMs)
+    const { speed, setSimDateMs, intro } = useStore.getState()
+    // the clock starts once the title card is gone, so "now" really is now
+    if (speed !== 0 && intro === 'done') {
+      // clamp delta so tab-switching doesn't fast-forward wildly
+      const d = Math.min(delta, 0.1)
+      const advanceMs = d * speed * 86_400 * 1000
+      dateRef.current = new Date(dateRef.current.getTime() + advanceMs)
+    }
 
     accum.current += delta
     if (accum.current > 0.2) {
       accum.current = 0
-      setSimDateMs(dateRef.current.getTime())
+      const ms = dateRef.current.getTime()
+      if (ms !== useStore.getState().simDateMs) setSimDateMs(ms)
     }
   })
 
